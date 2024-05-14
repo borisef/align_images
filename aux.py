@@ -8,6 +8,18 @@ orb = cv.ORB_create(
     scaleFactor=1.2,
     scoreType=cv.ORB_HARRIS_SCORE)
 
+
+def add_noise(img,w):
+    row = img.shape[0]
+    col = img.shape[1]
+    # noise
+    gaussian = np.random.random((row, col)).astype(np.float32)
+    gaussian = gaussian * 255
+    gaussian_img = img * (1 - w) + w * gaussian
+    img = gaussian_img
+    img = img.astype('uint8')
+    return img
+
 class FeatureExtraction:
     def __init__(self, img):
         self.img = copy.copy(img)
@@ -23,8 +35,8 @@ class FeatureExtraction:
         self.matched_pts = []
 
 
-LOWES_RATIO = 0.7
-MIN_MATCHES = 50
+LOWES_RATIO = 0.8 # 0.7
+MIN_MATCHES = 10 #50
 index_params = dict(
     algorithm = 6, # FLANN_INDEX_LSH
     table_number = 6,

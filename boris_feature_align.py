@@ -1,13 +1,25 @@
 import cv2 as cv
 import numpy as np
 
+import aux
 from aux import FeatureExtraction, feature_matching
+
 
 im1 = "/home/borisef/projects/align_images/nir_image.jpg"
 im2 = "/home/borisef/projects/align_images/rgb_image.jpg"
 
 img0 = cv.imread(im1, cv.COLOR_BGR2RGBA)
 img1 = cv.imread(im2, cv.COLOR_BGR2RGBA)
+
+row = img1.shape[0]
+col = img1.shape[1]
+
+w = 0.5
+img1 = aux.add_noise(img1,w)
+cv.imwrite("noisy_image1.jpg",img1)
+img0 = aux.add_noise(img0,w)
+cv.imwrite("noisy_image0.jpg",img0)
+
 
 features0 = FeatureExtraction(img0)
 features1 = FeatureExtraction(img1)

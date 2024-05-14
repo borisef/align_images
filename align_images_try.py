@@ -171,9 +171,9 @@ def translation(im0, im1):
       
 if __name__ == '__main__':
 
-  mode = "feature" #
-  image_1 = "/home/borisef/projects/align_images/nir_image.jpg"
-  image_2 = "/home/borisef/projects/align_images/nir_image.jpg"
+  mode = "rotation" #"feature", "ecc", "rotation"
+  image_1 = "/home/borisef/projects/align_images/noisy_image0.jpg"
+  image_2 = "/home/borisef/projects/align_images/noisy_image1.jpg"
 
   # parse arguments
   #args = getArgs()
