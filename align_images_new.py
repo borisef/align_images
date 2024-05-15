@@ -149,7 +149,82 @@ def featureAlign(im1, im2):
   height, width, channels = im2.shape
   im1Reg = cv2.warpPerspective(im1, h, (width, height))
   
-  return im1Reg, h      
+  return im1Reg, h
+
+def eccAlign_boris(im1, im2, number_of_iterations = 1000, termination_eps = 1e-8, warp_mode = cv2.MOTION_EUCLIDEAN):
+
+    # Convert images to grayscale
+    im1_gray = im1
+    im2_gray = im2
+
+    # Find size of image1
+    sz = im1.shape
+
+    # Define the motion model
+
+
+    # Define 2x3 or 3x3 matrices and initialize the matrix to identity
+    if warp_mode == cv2.MOTION_HOMOGRAPHY :
+        warp_matrix = np.eye(3, 3, dtype=np.float32)
+    else :
+        warp_matrix = np.eye(2, 3, dtype=np.float32)
+
+    # Define termination criteria
+    criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT,
+     number_of_iterations,  termination_eps)
+
+    # Run the ECC algorithm. The results are stored in warp_matrix.
+    (cc, warp_matrix) = cv2.findTransformECC (im1_gray, im2_gray, warp_matrix, warp_mode, criteria)
+
+    if warp_mode == cv2.MOTION_HOMOGRAPHY :
+        # Use warpPerspective for Homography
+        im2_aligned = cv2.warpPerspective (im2, warp_matrix, (sz[1],sz[0]), flags=cv2.INTER_LINEAR + cv2.WARP_INVERSE_MAP)
+    else :
+        # Use warpAffine for Translation, Euclidean and Affine
+        im2_aligned = cv2.warpAffine(im2, warp_matrix, (sz[1],sz[0]), flags=cv2.INTER_LINEAR + cv2.WARP_INVERSE_MAP);
+
+    return im2_aligned, warp_matrix
+
+def featureAlign_boris(im1Gray, im2Gray,max_features = 1000, feature_retention = 0.1, save_matches = True ):
+
+    # Detect ORB features and compute descriptors.
+    orb = cv2.ORB_create(max_features)
+    keypoints1, descriptors1 = orb.detectAndCompute(im1Gray, None)
+    keypoints2, descriptors2 = orb.detectAndCompute(im2Gray, None)
+
+    # Match features.
+    matcher = cv2.DescriptorMatcher_create(cv2.DESCRIPTOR_MATCHER_BRUTEFORCE_HAMMING)
+    matches = matcher.match(descriptors1, descriptors2, None)
+
+    # Sort matches by score
+    list(matches).sort(key=lambda x: x.distance, reverse=False)
+
+    # Remove not so good matches
+    numGoodMatches = int(len(matches) * feature_retention)
+    matches = matches[:numGoodMatches]
+
+    # Draw top matches
+    imMatches = cv2.drawMatches(im1Gray, keypoints1, im2Gray, keypoints2, matches, None)
+    if(save_matches):
+     cv2.imwrite("matches.jpg", imMatches)
+
+    # Extract location of good matches
+    points1 = np.zeros((len(matches), 2), dtype=np.float32)
+    points2 = np.zeros((len(matches), 2), dtype=np.float32)
+
+    for i, match in enumerate(matches):
+        points1[i, :] = keypoints1[match.queryIdx].pt
+        points2[i, :] = keypoints2[match.trainIdx].pt
+
+    # Find homography
+    h, mask = cv2.findHomography(points1, points2, cv2.RANSAC)
+
+    # Use homography
+    height, width = im2Gray.shape
+    im1Reg = cv2.warpPerspective(im1Gray, h, (width, height))
+
+    return im1Reg, h
+
 
 # FFT phase correlation
 def translation(im0, im1):

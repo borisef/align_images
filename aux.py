@@ -47,18 +47,22 @@ flann = cv.FlannBasedMatcher(
     index_params,
     search_params)
 
-def feature_matching(features0, features1):
+def feature_matching(features0, features1, new_lowes_ratio = None, new_min_matches = None):
+    if(new_lowes_ratio is None):
+        new_lowes_ratio = LOWES_RATIO
+    if(new_min_matches is None):
+        new_min_matches = MIN_MATCHES
     matches = [] # good matches as per Lowe's ratio test
     if(features0.des is not None and len(features0.des) > 2):
         all_matches = flann.knnMatch( \
             features0.des, features1.des, k=2)
         try:
             for m,n in all_matches:
-                if m.distance < LOWES_RATIO * n.distance:
+                if m.distance < new_lowes_ratio * n.distance:
                     matches.append(m)
         except ValueError:
             pass
-        if(len(matches) > MIN_MATCHES):
+        if(len(matches) > new_min_matches):
             features0.matched_pts = np.float32( \
                 [ features0.kps[m.queryIdx].pt for m in matches ] \
                 ).reshape(-1,1,2)
