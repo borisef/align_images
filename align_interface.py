@@ -35,11 +35,15 @@ def feature_align_2(img0,img1,params):
     return warped
 
 def ecc_align(img0,img1,params):
-    im2_aligned, warp_matrix = eccAlign_boris(img0,img1,number_of_iterations=params['number_of_iterations'],termination_eps=params['termination_eps'],
+    im1_aligned, warp_matrix = eccAlign_boris(img0,img1,number_of_iterations=params['number_of_iterations'],termination_eps=params['termination_eps'],
                                               warp_mode=cv.MOTION_EUCLIDEAN)
 
-    return im2_aligned
+    return im1_aligned
 
+def fft_pc_align(im1, im2, params):
+    pass#TODO
+
+    return im1
 
 def align_two_images(img1,img2,method="feature_align_1",params=None):
     #method: feature_align_1,feature_align_2,ECC,FFT_phase_corr, brute_force
@@ -49,21 +53,24 @@ def align_two_images(img1,img2,method="feature_align_1",params=None):
     im2 = cv.imread(img2, cv.COLOR_BGR2RGBA)
 
     if(method == "feature_align_1"):
-        img_reg2 = feature_align_1(im1,im2,params)
+        img_reg1 = feature_align_1(im1,im2,params)
 
     if (method == "feature_align_2"):
-        img_reg2 = feature_align_2(im1, im2, params)
+        img_reg1 = feature_align_2(im1, im2, params)
 
-    if (method == "ECC"):
-        img_reg2 = ecc_align(im2, im1, params)
+    if (method == "ECC"): #NOT good
+        img_reg1 = ecc_align(im1, im2, params)
 
-    return img_reg2
+    if (method == "FFT_phase_corr"):  # NOT good
+        img_reg1 = fft_pc_align(im1, im2, params)
+
+    return img_reg1
 
 
 
 if __name__ == "__main__":
-    img1 = "/home/borisef/projects/align_images/nir_image.jpg"
-    img2 = "/home/borisef/projects/align_images/rgb_image.jpg"
+    img1 = "/home/borisef/projects/align_images/nir_image.jpg" #source will be transformed
+    img2 = "/home/borisef/projects/align_images/rgb_image.jpg" #target
 
     params_fa_1 ={'save_matched': True,
                   'lowes_ratio': 0.8, #0.7

@@ -174,14 +174,14 @@ def eccAlign_boris(im1, im2, number_of_iterations = 1000, termination_eps = 1e-8
      number_of_iterations,  termination_eps)
 
     # Run the ECC algorithm. The results are stored in warp_matrix.
-    (cc, warp_matrix) = cv2.findTransformECC (im1_gray, im2_gray, warp_matrix, warp_mode, criteria)
+    (cc, warp_matrix) = cv2.findTransformECC (im2_gray, im1_gray, warp_matrix, warp_mode, criteria)
 
     if warp_mode == cv2.MOTION_HOMOGRAPHY :
         # Use warpPerspective for Homography
-        im2_aligned = cv2.warpPerspective (im2, warp_matrix, (sz[1],sz[0]), flags=cv2.INTER_LINEAR + cv2.WARP_INVERSE_MAP)
+        im2_aligned = cv2.warpPerspective (im1, warp_matrix, (sz[1],sz[0]), flags=cv2.INTER_LINEAR + cv2.WARP_INVERSE_MAP)
     else :
         # Use warpAffine for Translation, Euclidean and Affine
-        im2_aligned = cv2.warpAffine(im2, warp_matrix, (sz[1],sz[0]), flags=cv2.INTER_LINEAR + cv2.WARP_INVERSE_MAP);
+        im2_aligned = cv2.warpAffine(im1, warp_matrix, (sz[1],sz[0]), flags=cv2.INTER_LINEAR + cv2.WARP_INVERSE_MAP);
 
     return im2_aligned, warp_matrix
 
