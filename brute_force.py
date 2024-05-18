@@ -59,11 +59,11 @@ def rgb2gray(rgb, scale=None):
     return numpy.sum(rgb * scale, axis=-1)
 
 
-template = imagecodecs.imread('cw1_IMG_9037.jpg')
-search = imagecodecs.imread('cw1_p1_9037_kzw.jpg')
+template = imagecodecs.imread('/home/borisef/projects/align_images/im1gray.jpg')
+search = imagecodecs.imread('/home/borisef/projects/align_images/crop2.jpg')
 
 yoffset, xoffset, scale = brute_force_scale_invariant_template_matching(
-    rgb2gray(template), rgb2gray(search), zooms=(0.5,)
+    template, search, zooms=[ 1.0]
 )
 print(yoffset, xoffset, scale)
 

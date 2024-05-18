@@ -174,7 +174,7 @@ def eccAlign_boris(im1, im2, number_of_iterations = 1000, termination_eps = 1e-8
      number_of_iterations,  termination_eps)
 
     # Run the ECC algorithm. The results are stored in warp_matrix.
-    (cc, warp_matrix) = cv2.findTransformECC (im2_gray, im1_gray, warp_matrix, warp_mode, criteria)
+    (cc, warp_matrix) = cv2.findTransformECC (im1_gray, im2_gray, warp_matrix, warp_mode, criteria)
 
     if warp_mode == cv2.MOTION_HOMOGRAPHY :
         # Use warpPerspective for Homography
@@ -185,7 +185,7 @@ def eccAlign_boris(im1, im2, number_of_iterations = 1000, termination_eps = 1e-8
 
     return im2_aligned, warp_matrix
 
-def featureAlign_boris(im1Gray, im2Gray,max_features = 1000, feature_retention = 0.1, save_matches = True ):
+def featureAlign_boris(im1Gray, im2Gray,max_features = 1000, feature_retention = 0.1, save_matches = True, transform = "Homography" ):
 
     # Detect ORB features and compute descriptors.
     orb = cv2.ORB_create(max_features)
@@ -216,12 +216,20 @@ def featureAlign_boris(im1Gray, im2Gray,max_features = 1000, feature_retention =
         points1[i, :] = keypoints1[match.queryIdx].pt
         points2[i, :] = keypoints2[match.trainIdx].pt
 
-    # Find homography
-    h, mask = cv2.findHomography(points1, points2, cv2.RANSAC)
-
-    # Use homography
     height, width = im2Gray.shape
-    im1Reg = cv2.warpPerspective(im1Gray, h, (width, height))
+
+    if(transform == "Homography"):
+        # Find homography
+        h, mask = cv2.findHomography(points1, points2, cv2.RANSAC)
+
+         # Use homography
+
+        im1Reg = cv2.warpPerspective(im1Gray, h, (width, height))
+    else:
+
+        h, _ = cv2.estimateAffine2D(points1, points2, method=cv2.RANSAC,
+                                   ransacReprojThreshold=4)
+        im1Reg = cv2.warpAffine(im1Gray, h, (width, height))
 
     return im1Reg, h
 
@@ -243,7 +251,30 @@ def translation(im0, im1):
     if t1 > shape[1] // 2:
         t1 -= shape[1]
     return [t0, t1]
-      
+
+def translation_boris(im0, im1):
+    # Convert images to grayscale
+    # im0 = cv2.cvtColor(im0, cv2.COLOR_BGR2GRAY)
+    # im1 = cv2.cvtColor(im1, cv2.COLOR_BGR2GRAY)
+
+    shape = im0.shape
+    f0 = fft2(im0)
+    f1 = fft2(im1)
+    ir = abs(ifft2((f0 * f1.conjugate()) / (abs(f0) * abs(f1))))
+    t0, t1 = np.unravel_index(np.argmax(ir), shape)
+    if t0 > shape[0] // 2:
+        t0 -= shape[0]
+    if t1 > shape[1] // 2:
+        t1 -= shape[1]
+
+    H = np.eye(3, 3, dtype=np.float32)
+    H[0,2] = -t1
+    H[1,2] = -t0
+
+
+    return H
+
+
 if __name__ == '__main__':
 
   mode = "rotation" #"feature", "ecc", "rotation"
