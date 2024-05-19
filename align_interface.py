@@ -21,7 +21,7 @@ def feature_align_1(img0,img1,params):
 
     matches = feature_matching(features0, features1,new_lowes_ratio=params['lowes_ratio'], new_min_matches=params['min_matches'])
     matched_image = cv.drawMatches(img0, features0.kps, \
-                                   img1, features1.kps, matches, None, flags=2)
+                                   img1, features1.kps, matches, None, flags=2) # visalization
 
     if(params['save_matched']==True):
         cv.imwrite("matched_image.jpg", matched_image)
@@ -50,7 +50,6 @@ def ecc_align(img0,img1,params):
 
 def translation_align(im1, im2, params):
     H= translation_boris(im1, im2)
-
     warped = get_warped(im1, im2, H)
     return warped
 
@@ -70,7 +69,7 @@ def align_two_images(img1,img2,method="feature_align_1",params=None):
     if (method == "ECC"): #NOT good
         img_reg1 = ecc_align(im1, im2, params)
 
-    if (method == "translation"):  # TODO
+    if (method == "translation"):
         img_reg1 = translation_align(im1, im2, params)
 
     return img_reg1
@@ -85,6 +84,7 @@ if __name__ == "__main__":
                   'lowes_ratio': 0.8, #0.7
                   'min_matches': 15,#50
                   'transformation': 'Homography', #or Affine or Homography
+                  'roi_4_features': None # only select features n ROI #TODO
                   }
     params_fa_2 = {'max_features' : 1000,'feature_retention': 0.1,'save_matches':True,
                    'transformation': 'Affine', #or Affine or Homography
@@ -92,19 +92,21 @@ if __name__ == "__main__":
 
     params_ecc = {'number_of_iterations': 100,'termination_eps': 1e-7, 'warp_mode':cv.MOTION_AFFINE}
 
-    if(0):
+    params_translation = None
+
+    if (1):
         img21 = align_two_images(img1,img2,method="feature_align_1",params=params_fa_1)
         cv.imwrite("output_image_fa1_homo.jpg", img21)
-    if(1):
+    if (0):
         img21 = align_two_images(img1, img2, method="feature_align_2", params=params_fa_2)
         cv.imwrite("output_image_fa2_affine.jpg", img21)
-    if(0):
+    if (0):
         img21 = align_two_images(img1, img2, method="ECC", params=params_ecc)
         cv.imwrite("output_image_ecc.jpg", img21)
     if (0):
         # img1 = "/home/borisef/projects/align_images/im1gray.jpg"  # source will be transformed
         # img2 = "/home/borisef/projects/align_images/im1gray.jpg"  # target
-        img21 = align_two_images(img1, img2, method="translation", params=None)
+        img21 = align_two_images(img1, img2, method="translation", params=params_translation)
         cv.imwrite("output_image_trans.jpg", img21)
 
 

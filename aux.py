@@ -21,7 +21,7 @@ def add_noise(img,w):
     return img
 
 class FeatureExtraction:
-    def __init__(self, img):
+    def __init__(self, img, roi = None):
         self.img = copy.copy(img)
         if(len(img.shape)==3):
             self.gray_img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
@@ -29,6 +29,10 @@ class FeatureExtraction:
             self.gray_img = img
         self.kps, self.des = orb.detectAndCompute( \
             self.gray_img, None)
+
+        if(roi is not None): #TODO filter ot features not in ROI see kps pt
+
+
         self.img_kps = cv.drawKeypoints( \
             self.img, self.kps, 0, \
             flags=cv.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
