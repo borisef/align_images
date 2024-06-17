@@ -182,15 +182,16 @@ def similarity(im0, im1):
         angle -= 180.0
 
 
-    #find orig center of im1
-    old_center = np.array(im1.shape)/2.0
-
-
     im2 = ndimage.zoom(im1, 1.0 / scale)
+    orig_scale = 1.0 / scale
+
+    old_center = np.array(im2.shape) / 2.0 #center after zoom
+
     im2 = ndimage.rotate(im2, angle)
 
     # find new center of im1
     new_center =  np.array(im2.shape)/2.0 #center of scaled and rotated image
+    center_shift = (new_center - old_center)  # shift of rotation-around-center
 
     if im2.shape < im0.shape:
         t = numpy.zeros_like(im0)
@@ -210,8 +211,10 @@ def similarity(im0, im1):
         t1 -= f0.shape[1]
 
     im2 = ndimage.shift(im2, [t0, t1])
+    orig_t0 = t0
+    orig_t1 = t1
 
-    center_shift= (new_center - old_center) +  [t0, t1]#TODO: check algebra
+
     #how the new center should move in wraped image (after rotation)
 
     # correct parameters for ndimage's internal processing
@@ -223,7 +226,7 @@ def similarity(im0, im1):
         t0, t1 = d + t1, d + t0
     scale = (im1.shape[1] - 1) / (int(im1.shape[1] / scale) - 1)
 
-    return im2, scale, angle, [-t0, -t1], center_shift
+    return im2, scale, angle, [-t0, -t1], center_shift, orig_scale, [orig_t0,orig_t1]
 
 
 def similarity_matrix(scale, angle, vector):

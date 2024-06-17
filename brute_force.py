@@ -36,6 +36,7 @@ def cosine_diff(a,b):
     a = a - a.mean()
     b = b - b.mean()
     sim = np.dot(a,b) / np.sqrt(np.dot(a,a)*np.dot(b,b)+ 0.00001)
+    #print(sim)
     return np.abs(sim)
 
 def imshow_dif(im0, im1, im2,cmap=None, fig_title = "imshow_dif",**kwargs):
@@ -133,6 +134,9 @@ def transform_show_consistent(scale, rotate,translate,img, target_img=None, show
 
 def recover_transform(img, ref_img_point =None, scale=1, rotate=0, translate=(0, 0),
                       target_img=None, show = True, fig_title = 'recover_transform_show'):
+    #ref_img_point - center of ORIGINAL search window (before zoom)
+    # translate = center_shift + [orig_t1, orig_t0]
+    # rotate = -orig_angle
     h,w = img.shape
     if(ref_img_point is None):
         ref_img_point = np.array([w / 2, h / 2]) #center of img
@@ -145,12 +149,13 @@ def recover_transform(img, ref_img_point =None, scale=1, rotate=0, translate=(0,
 
     #rotate around the point  and shift
     ht,wt = target_img.shape
-    img2 = rotate_img_around_point_and_shift(img1, angle = rotate, ref_point = ref_img_point,txty = translate,  out_shape = (wt,ht))
+    img2 = rotate_img_around_point_and_shift(img1, angle = rotate, ref_point = ref_img_point,txty = translate,  out_shape = (wt,ht), show=False)
 
     if(show):
         pyplot.figure(fig_title)
         pyplot.imshow(img2)
 
+    return img2
 
 
 
@@ -163,9 +168,8 @@ def my_brute_force_scale_invariant_template_matching(
     size=None,  # power-of-two size of square sliding window
     delta=64, #None,  # advance of sliding windows. default: half window size
     min_overlap=0.5,#0.25,  # minimum overlap of search with window
-    max_diff=0.05,  # max average of search - window differences in overlap
     max_angle=20,  # small value like 0.5 for no rotation
-    min_cos_similarity = 0.8
+    min_cos_similarity = 0.7
 ):
     """Return yoffset, xoffset, and scale of first match of search in template.
 
@@ -179,70 +183,70 @@ def my_brute_force_scale_invariant_template_matching(
         size = int(pow(2, int(math.log(min(search.shape), 2))))
     if delta is None:
         delta = size // 2
-    search = search[:size, :size]
+
+    search = search[:size, :size] # crop max power of 2 window
     best_sim = 0
     best_sim_params = None
+
     for zoom in zooms:
         windows = numpy.lib.stride_tricks.sliding_window_view(
             ndimage.zoom(template, zoom), search.shape
-        )[::delta, ::delta]
+        )[::delta, ::delta] #prepare sliding windows
         for i in range(windows.shape[0]):
             for j in range(windows.shape[1]):
                 print('.', end='')
                 window = windows[i, j]
-                im2, scale, angle, (t0, t1), center_shift = myimreg.similarity(window, search)
-                #diff = numpy.abs(im2 - window)[im2 != 0]
+                im2, scale, angle, (t0, t1), center_shift, orig_scale, (orig_t0, orig_t1) = myimreg.similarity(window, search)
+
+                #find overlap and compare to threshold
+                nz = (im2>0.01).sum()/(im2.shape[0]*im2.shape[1])
+
                 sim = cosine_diff(im2,window)
-                if(best_sim < sim and sim >  min_cos_similarity  and max_angle > np.abs(angle)):
+                if(best_sim < sim and sim >  min_cos_similarity  and max_angle > np.abs(angle) and nz> min_overlap):
                     best_sim = sim
-                    im2, scale, angle, (t0, t1), center_shift = myimreg.similarity(window, search)
-                    best_sim_params = {'im2': im2, 'scale': scale, 'angle':angle, 't0': t0, 't1':t1,
-                                       'zoom':zoom, 'i':i,'j':j, 'center_shift': center_shift}
+                    # im2, scale, angle, (t0, t1), center_shift, orig_scale, (orig_t0, orig_t1) =\
+                    #     myimreg.similarity(window, search)
+
                     print('best sim:' + str(sim))
-                    imshow_dif(search, window,im2,fig_title="imshow_dif_window")  # crop-good, crop_rot - GOOD
+                    #imshow_dif(search, window,im2,fig_title="imshow_dif_window")  # crop-good, crop_rot - GOOD
 
-                    best_t0 = (i * delta - t0) / zoom
-                    best_t1 = (j * delta - t1) / zoom
-                    best_scale = 1 / scale/ zoom
+                    best_t0 = (i * delta + orig_t0) / zoom
+                    best_t1 = (j * delta + orig_t1) / zoom
+                    best_scale = orig_scale/ zoom
                     best_angle = -angle
-                    H = myimreg.similarity_matrix(scale=best_scale, angle=best_angle, vector=(best_t1, best_t0))
-                    h_template, w_template = template.shape
+                    best_sim_params = {'transformed': im2, 'scale': scale, 'best_angle': best_angle, 't0': t0, 't1': t1,
+                                       'zoom': zoom, 'i': i, 'j': j, 'center_shift': center_shift,
+                                       'best_scale': best_scale, 'best_t0': best_t0, 'best_t1': best_t1
+                                       }
 
+                    #(h, w) = search.shape
+                    # ref_point = np.array([w/2,h/2]) # center of search
+                    # translate = center_shift + [orig_t1, orig_t0]
 
+                    # pyplot.figure('im2');pyplot.imshow(im2)
+                    # recover_transform(search, ref_img_point =ref_point, scale=orig_scale, rotate=best_angle, translate=translate,
+                    #                   target_img=None, show = True, fig_title = 'recover_transform_show')
 
-                    warped = cv2.warpPerspective(search, H, (w_template, h_template), \
-                                                 borderMode=cv2.BORDER_CONSTANT, borderValue=(0, 0, 0, 0))
-                    imshow_dif(search, template, warped, fig_title="imshow_dif_template") # crop-good, crop_rot -BAD
-                    pyplot.figure('im2'); pyplot.imshow(im2)
-                    transform_show(best_scale, best_angle, (-t1, -t0), search, fig_title="compare2im2") # crop-good, crop_rot -BAD
-                    transform_show(best_scale, best_angle, (best_t1, best_t0), search,tar_img=template, fig_title="transform_show_2_template") # crop-good, crop_rot -BAD
-                    transform_show_consistent(best_scale, best_angle, (-t0, -t1), search, fig_title="const_compare2im2")   # crop-good, crop_rot -BAD
+                    #pyplot.figure('template');pyplot.imshow(template)
+                    (h, w) = search.shape
+                    ref_point = np.array([w / 2, h / 2])  # center of search or center of search if search is subimage in larger image
+                    translate2template= center_shift + [best_t1, best_t0]
+                    search_transformed = recover_transform(search, ref_img_point=ref_point, scale=best_scale, rotate=best_angle,
+                                      translate=translate2template,
+                                      target_img=template, show=False, fig_title='recover_transform_in_template')
 
-                    (h,w) = search.shape
-                    ref_point = center_shift +  np.array([w/2,h/2]) # center of search 
-                    recover_transform(search, ref_img_point =ref_point, scale=best_scale, rotate=best_angle, translate=(0, 0),
-                                      target_img=None, show = True, fig_title = 'recover_transform_show')
+                    pyplot.show()
                     print("OK")
 
 
-
-
-
-
-    if(best_sim < 0.8):
-        raise ValueError('no match of search image found in template')
+    if(best_sim < min_cos_similarity):
+        print('no match of search image found in template')
+        return None
     else:
-        best_t0 = (best_sim_params['i'] * delta - best_sim_params['t0']) / best_sim_params['zoom']
-        best_t1 = (best_sim_params['j'] * delta - best_sim_params['t1']) / best_sim_params['zoom']
-        best_scale =  1 / best_sim_params['scale'] / best_sim_params['zoom']
-        best_angle = best_sim_params['angle']
-        H = myimreg.similarity_matrix(scale = best_scale, angle = -best_angle, vector=(best_t1,best_t0))
-
-        h, w = template.shape
-        warped = cv2.warpPerspective(search, H, (w, h), \
-                                    borderMode=cv2.BORDER_CONSTANT, borderValue=(0, 0, 0, 0))
-        imshow_dif(search,template, warped)
-        print('OK')
+       #imshow_dif(search, template,search_transformed, fig_title="imshow_dif_search_to_template")
+       best_sim_params['transformed'] = search_transformed
+       print('OK')
+    return best_sim_params
 
 
 def brute_force_scale_invariant_template_matching(
@@ -300,23 +304,23 @@ def rgb2gray(rgb, scale=None):
 if __name__ == "__main__":
 
     template = imagecodecs.imread('/home/borisef/projects/align_images/im2gray.jpg')
-    #search = imagecodecs.imread('/home/borisef/projects/align_images/crop1.jpg')
+    #search = imagecodecs.imread('/home/borisef/projects/align_images/crop2.jpg')
+    # search = imagecodecs.imread('/home/borisef/projects/align_images/crop1.jpg')
     search = imagecodecs.imread('/home/borisef/projects/align_images/crop_and_rot.jpg')
+    # search = imagecodecs.imread('/home/borisef/projects/align_images/zoom105.png')
+    #search = imagecodecs.imread('/home/borisef/projects/align_images/zoom105rot5.png')#soso
 
-    yoffset, xoffset, scale = my_brute_force_scale_invariant_template_matching(
-        template, search, zooms=[ 1.0],delta = 128
+    mr = my_brute_force_scale_invariant_template_matching(
+        template, search, zooms=[ 1.0],delta = 32,min_overlap=0.6, max_angle=20.0,min_cos_similarity=0.7
     )
-    print(yoffset, xoffset, scale)
+    #vizualize results
+    (h, w) = search.shape
+    ref_point = np.array([w / 2, h / 2])  # center of search or center of search if search is subimage in larger image
+    translate2template = mr['center_shift'] + [mr['best_t1'], mr['best_t0']]
+    search_transformed = recover_transform(search, ref_img_point=ref_point, scale=mr['best_scale'], rotate=mr['best_angle'],
+                                           translate=translate2template,
+                                           target_img=template, show=False, fig_title='recover_transform_in_template')
 
-    figure, ax = pyplot.subplots()
-    ax.imshow(template)
-    rect = patches.Rectangle(
-        (xoffset, yoffset),
-        scale * search.shape[1],
-        scale * search.shape[0],
-        linewidth=1,
-        edgecolor='r',
-        facecolor='none',
-    )
-    ax.add_patch(rect)
+    imshow_dif(search, template, search_transformed, fig_title="imshow_dif_search_to_template")
     pyplot.show()
+    print('Done')
