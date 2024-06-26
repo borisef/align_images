@@ -6,6 +6,82 @@ import cv2
 import numpy as np
 from numpy.fft import fft2, ifft2, fftshift
 
+def legal_bbox(bbox, im):
+    x1, y1, x2, y2 = bbox
+    H = im.shape[0]
+    W = im.shape[1]
+    if(x1<0 or y1 <0 or x2 >=W or y2 >=H):
+        return False
+    else:
+        return True
+
+
+def same_size_bboxes(bbox0,bbox1, im0,im1):
+    if(bbox0 is None or bbox1 is None):
+        return (bbox0, bbox1)
+
+    x1_0, y1_0, x2_0, y2_0 = bbox0
+    x1_1, y1_1, x2_1, y2_1 = bbox1
+
+    lenX_0 = x2_0 - x1_0
+    lenX_1 = x2_1 - x1_1
+    lenY_0 = y2_0 - y1_0
+    lenY_1 = y2_1 - y1_1
+
+
+    centerX_0 = int((x1_0 + x2_0)*0.5)
+    centerX_1 = int((x1_1 + x2_1) * 0.5)
+    centerY_0 = int((y1_0 + y2_0) * 0.5)
+    centerY_1 = int((y1_1 + y2_1) * 0.5)
+
+    hlenX = int(max(lenX_0, lenX_1)/2)
+    hlenY = int(max(lenY_0, lenY_1)/2)
+
+    #extend around center
+    x1_0 = centerX_0 - hlenX
+    x2_0 = centerX_0 + hlenX
+    x1_1 = centerX_1 - hlenX
+    x2_1 = centerX_1 + hlenX
+    y1_0 = centerY_0 - hlenY
+    y2_0 = centerY_0 + hlenY
+    y1_1 = centerY_1 - hlenY
+    y2_1 = centerY_1 + hlenY
+
+
+    # x2_0 = x2_0 - lenX_0 + max(lenX_0, lenX_1)
+    # x2_1 = x2_1 - lenX_1 + max(lenX_0, lenX_1)
+    # y2_0 = y2_0 - lenY_0 + max(lenY_0, lenY_1)
+    # y2_1 = y2_1 - lenY_1 + max(lenY_0, lenY_1)
+
+    bbox0 = [x1_0, y1_0, x2_0, y2_0 ]
+    bbox1 = [x1_1, y1_1, x2_1, y2_1]
+
+    if(not legal_bbox(bbox0, im0)):
+        return (None, None)
+    if (not legal_bbox(bbox1, im1)):
+        return (None, None)
+
+    return (bbox0,bbox1)
+
+
+
+def cut_bbox(im,bbox):
+    x1, y1, x2, y2 = bbox
+    im1 = im[y1:y2,x1:x2].copy()
+    return im1
+
+def get_mask(img,roi):
+    if (roi is None):
+        mask = None
+    else:
+        mask = np.zeros_like(img)
+        x1, y1, x2, y2 = roi
+        mask[y1:y2, x1:x2] = 1
+    return  mask
+
+
+
+
 # argument parser
 def getArgs():
 
@@ -151,7 +227,7 @@ def featureAlign(im1, im2):
   
   return im1Reg, h
 
-def eccAlign_boris(im1, im2, number_of_iterations = 1000, termination_eps = 1e-8, warp_mode = cv2.MOTION_EUCLIDEAN):
+def eccAlign_boris(im1, im2, number_of_iterations = 1000, termination_eps = 1e-8, warp_mode = cv2.MOTION_EUCLIDEAN, bbox1 = None, bbox2 = None):
 
     # Convert images to grayscale
     im1_gray = im1
@@ -174,7 +250,8 @@ def eccAlign_boris(im1, im2, number_of_iterations = 1000, termination_eps = 1e-8
      number_of_iterations,  termination_eps)
 
     # Run the ECC algorithm. The results are stored in warp_matrix.
-    (cc, warp_matrix) = cv2.findTransformECC (im1_gray, im2_gray, warp_matrix, warp_mode, criteria)
+    mask2 = np.ones_like(im2_gray)
+    (cc, warp_matrix) = cv2.findTransformECC (im1_gray, im2_gray, warp_matrix, warp_mode, criteria, inputMask = mask2)
 
     if warp_mode == cv2.MOTION_HOMOGRAPHY :
         # Use warpPerspective for Homography
@@ -185,28 +262,37 @@ def eccAlign_boris(im1, im2, number_of_iterations = 1000, termination_eps = 1e-8
 
     return im2_aligned, warp_matrix
 
-def featureAlign_boris(im1Gray, im2Gray,max_features = 1000, feature_retention = 0.1, save_matches = True, transform = "Homography" ):
+def featureAlign_boris(im1Gray, im2Gray,max_features = 1000, min_matches = 5, max_matches = 50, save_matches = True,
+                       transform = "Homography",
+                       roi1 = None, roi2 = None ):
 
     # Detect ORB features and compute descriptors.
     orb = cv2.ORB_create(max_features)
-    keypoints1, descriptors1 = orb.detectAndCompute(im1Gray, None)
-    keypoints2, descriptors2 = orb.detectAndCompute(im2Gray, None)
+
+    mask1 = get_mask(im1Gray,roi1)
+    mask2 = get_mask(im2Gray, roi2)
+
+
+    keypoints1, descriptors1 = orb.detectAndCompute(im1Gray, mask = mask1)
+    keypoints2, descriptors2 = orb.detectAndCompute(im2Gray, mask = mask2)
 
     # Match features.
-    matcher = cv2.DescriptorMatcher_create(cv2.DESCRIPTOR_MATCHER_BRUTEFORCE_HAMMING)
+    matcher = cv2.DescriptorMatcher_create(cv2.DESCRIPTOR_MATCHER_BRUTEFORCE_L1) #DESCRIPTOR_MATCHER_BRUTEFORCE_L1, DESCRIPTOR_MATCHER_BRUTEFORCE_HAMMING
     matches = matcher.match(descriptors1, descriptors2, None)
 
     # Sort matches by score
     list(matches).sort(key=lambda x: x.distance, reverse=False)
 
     # Remove not so good matches
-    numGoodMatches = int(len(matches) * feature_retention)
-    matches = matches[:numGoodMatches]
+    if(len(matches) > max_matches):
+        matches = matches[:max_matches]
+    if (len(matches) < min_matches):
+        print("ERROR len(matches) < min_matches")
 
     # Draw top matches
     imMatches = cv2.drawMatches(im1Gray, keypoints1, im2Gray, keypoints2, matches, None)
     if(save_matches):
-     cv2.imwrite("matches.jpg", imMatches)
+     cv2.imwrite("data/outputs/matches.jpg", imMatches)
 
     # Extract location of good matches
     points1 = np.zeros((len(matches), 2), dtype=np.float32)
@@ -252,10 +338,22 @@ def translation(im0, im1):
         t1 -= shape[1]
     return [t0, t1]
 
-def translation_boris(im0, im1):
+def translation_boris(im0, im1, bbox0 = None, bbox1 = None):
     # Convert images to grayscale
     # im0 = cv2.cvtColor(im0, cv2.COLOR_BGR2GRAY)
     # im1 = cv2.cvtColor(im1, cv2.COLOR_BGR2GRAY)
+
+    bbox0, bbox1 = same_size_bboxes(bbox0, bbox1, im0, im1)
+    if((bbox0 is not None) and (bbox1 is not None) ):
+        tx_init = bbox0[0]-bbox1[0]
+        ty_init = bbox0[1] - bbox1[1]
+    else:
+        tx_init = ty_init = 0
+
+    if(bbox0 is not None):
+        im0 = cut_bbox(im0,bbox0)
+    if (bbox1 is not None):
+        im1 = cut_bbox(im1, bbox1)
 
     shape = im0.shape
     f0 = fft2(im0)
@@ -268,8 +366,8 @@ def translation_boris(im0, im1):
         t1 -= shape[1]
 
     H = np.eye(3, 3, dtype=np.float32)
-    H[0,2] = -t1
-    H[1,2] = -t0
+    H[0,2] = -t1-tx_init
+    H[1,2] = -t0-ty_init
 
 
     return H
@@ -277,9 +375,9 @@ def translation_boris(im0, im1):
 
 if __name__ == '__main__':
 
-  mode = "rotation" #"feature", "ecc", "rotation"
-  image_1 = "/home/borisef/projects/align_images/noisy_image0.jpg"
-  image_2 = "/home/borisef/projects/align_images/noisy_image1.jpg"
+  mode = "feature"#, "ecc", "rotation"
+  image_1 = "/home/borisef/projects/align_images/data/767.jpg"
+  image_2 = "/home/borisef/projects/align_images/data/768.jpg"
 
   # parse arguments
   #args = getArgs()

@@ -8,6 +8,9 @@ from aux import FeatureExtraction, feature_matching
 im1 = "/home/borisef/projects/align_images/nir_image.jpg"
 im2 = "/home/borisef/projects/align_images/rgb_image.jpg"
 
+im1 = "/home/borisef/projects/align_images/data/767.jpg"
+im2 = "/home/borisef/projects/align_images/data/768.jpg"
+
 img0 = cv.imread(im1, cv.COLOR_BGR2RGBA)
 img1 = cv.imread(im2, cv.COLOR_BGR2RGBA)
 

@@ -33,7 +33,7 @@ To show the functions of the script I've included two example images, `rgb_image
 
 |  RGB | NIR  | 
 |---|---|
-| ![](rgb_image.jpg)  | ![](nir_image.jpg)  |
+| ![](data/rgb_image.jpg)  | ![](data/nir_image.jpg)  |
 
 The default settings on the script will call the feature based alignment method and align both images. The aligned image (image 1) will be written to disk as a new image, `reg_image.jpg`.
 
@@ -52,11 +52,11 @@ This routine will calculate and output an aligned image and print the transforma
 
 |  RGB | NIR  | 
 |---|---|
-| ![](reg_image.jpg)  | ![](nir_image.jpg)  |
+| ![](data/reg_image.jpg)  | ![](data/nir_image.jpg)  |
 
 In this example the final goal was to combine the spectral information of both images into a [vegetation index](https://en.wikipedia.org/wiki/Vegetation_Index). The below image combines the red band of the aligned RGB image with the (red) NIR band into an [NDVI index](https://en.wikipedia.org/wiki/Normalized_difference_vegetation_index). The red colours below show high vegetation densities, corresponding to the trees and grass patches in the image (or their reflections).
 
-![](ndvi.jpg)
+![](data/ndvi.jpg)
 
 ## Other settings
 

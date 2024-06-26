@@ -303,10 +303,10 @@ def rgb2gray(rgb, scale=None):
 
 if __name__ == "__main__":
 
-    template = imagecodecs.imread('/home/borisef/projects/align_images/im2gray.jpg')
+    template = imagecodecs.imread('/data/im2gray.jpg')
     #search = imagecodecs.imread('/home/borisef/projects/align_images/crop2.jpg')
     # search = imagecodecs.imread('/home/borisef/projects/align_images/crop1.jpg')
-    search = imagecodecs.imread('/home/borisef/projects/align_images/crop_and_rot.jpg')
+    search = imagecodecs.imread('/data/crop_and_rot.jpg')
     # search = imagecodecs.imread('/home/borisef/projects/align_images/zoom105.png')
     #search = imagecodecs.imread('/home/borisef/projects/align_images/zoom105rot5.png')#soso
 
